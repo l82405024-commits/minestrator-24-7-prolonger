@@ -1,0 +1,53 @@
+name: MineStrator 24/7 Smart Keep-Alive
+
+on:
+  schedule:
+    # Запасной планировщик GitHub Actions со сдвигом минут (чтобы не попадать в пиковые часы 00/15/30/45)
+    - cron: '11,26,41,56 * * * *'
+  workflow_dispatch:
+    inputs:
+      action_mode:
+        description: 'Режим работы бота'
+        required: true
+        default: 'SMART_KEEPALIVE'
+        type: choice
+        options:
+          - 'SMART_KEEPALIVE'
+          - 'TEST_COUNTDOWN'
+          - 'FORCE_START'
+          - 'FORCE_STOP'
+          - 'FORCE_RESTART'
+          - 'STATUS'
+  repository_dispatch:
+    types: [keepalive_ping, cron_job]
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  keepalive:
+    name: Check and KeepAlive MineStrator Server
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Smart KeepAlive
+        env:
+          PYTHONUNBUFFERED: '1'
+          SERVER_ID: '384625'
+          MINESTRATOR_TOKEN: ${{ secrets.MINESTRATOR_TOKEN }}
+          ACTION_MODE: ${{ github.event.inputs.action_mode || github.event.client_payload.action_mode || 'SMART_KEEPALIVE' }}
+        run: python main.py
+
