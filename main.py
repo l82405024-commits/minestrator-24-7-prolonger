@@ -332,8 +332,12 @@ if __name__ == "__main__":
     elif ACTION_MODE.startswith("CMD:") or ACTION_MODE.startswith("CONSOLE:"):
         prefix_len = 4 if ACTION_MODE.startswith("CMD:") else 8
         raw_cmd = os.getenv("ACTION_MODE", "")[prefix_len:].strip()
-        log(f"⚡ Отправка консольной команды: [{raw_cmd}]")
-        ok, res = mcp_call("send_console_command", {"server_id": SERVER_ID, "command": raw_cmd})
-        log(f"Результат MCP: ok={ok}, res={res}")
+        for single_cmd in raw_cmd.split(";;"):
+            single_cmd = single_cmd.strip()
+            if single_cmd:
+                log(f"⚡ Отправка консольной команды: [{single_cmd}]")
+                ok, res = mcp_call("send_console_command", {"server_id": SERVER_ID, "command": single_cmd})
+                log(f"Результат MCP: ok={ok}, res={res}")
+                time.sleep(1)
     else:
         smart_keepalive()
