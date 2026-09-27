@@ -6,17 +6,10 @@ on:
   workflow_dispatch:
     inputs:
       action_mode:
-        description: 'Action Mode'
+        description: 'Action Mode (e.g. SMART_KEEPALIVE, FORCE_RESTART, CONSOLE:op Player)'
         required: true
         default: 'SMART_KEEPALIVE'
-        type: choice
-        options:
-          - 'SMART_KEEPALIVE'
-          - 'TEST_COUNTDOWN'
-          - 'FORCE_START'
-          - 'FORCE_STOP'
-          - 'FORCE_RESTART'
-          - 'STATUS'
+        type: string
   repository_dispatch:
     types: [keepalive_ping, cron_job]
 
