@@ -316,46 +316,46 @@ if __name__ == "__main__":
     if ACTION_MODE == "TEST_NVIDIA":
         import requests, time
         api_key = "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"
-        log("=== FETCHING ACTIVE NVIDIA NIM MODELS ===")
+        log("=== SEARCHING WORKING MODELS FOR THIS ACCOUNT ===")
         try:
             resp = requests.get(
                 "https://integrate.api.nvidia.com/v1/models",
                 headers={"Authorization": f"Bearer {api_key}"},
                 timeout=15
             )
-            if resp.status_code == 200:
-                data = resp.json().get("data", [])
-                log(f"Found {len(data)} total models on NVIDIA NIM!")
-                # Print active models
-                instruct_models = [m.get("id") for m in data if "instruct" in m.get("id", "").lower() or "chat" in m.get("id", "").lower() or "r1" in m.get("id", "").lower()]
-                for m_id in instruct_models[:30]:
-                    log(f"  Available model: {m_id}")
-                
-                # Test the first 3 models
-                for test_m in instruct_models[:4]:
-                    log(f"--> Quick test with {test_m}...")
+            data = resp.json().get("data", [])
+            working = []
+            for item in data:
+                m_id = item.get("id")
+                # Quick test
+                try:
                     t0 = time.time()
                     t_resp = requests.post(
                         "https://integrate.api.nvidia.com/v1/chat/completions",
                         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
                         json={
-                            "model": test_m,
-                            "messages": [{"role": "user", "content": "Привет! Назови себя и ответь одним словом: работает?"}],
-                            "max_tokens": 50
+                            "model": m_id,
+                            "messages": [{"role": "user", "content": "1+1=?"}],
+                            "max_tokens": 10
                         },
-                        timeout=15
+                        timeout=5
                     )
                     dt = time.time() - t0
                     if t_resp.status_code == 200:
-                        txt = t_resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-                        log(f"✓ MODEL {test_m} WORKS! ({dt:.2f}s) Reply: {txt.strip()}")
-                    else:
-                        log(f"✗ MODEL {test_m} failed HTTP {t_resp.status_code}: {t_resp.text[:100]}")
-            else:
-                log(f"Failed to fetch models: HTTP {resp.status_code} {resp.text}")
+                        ans = t_resp.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                        log(f"⭐ WORKING MODEL FOUND: {m_id} (speed: {dt:.2f}s, ans: {ans})")
+                        working.append((m_id, dt))
+                        if len(working) >= 5:
+                            break
+                    elif t_resp.status_code != 404 and t_resp.status_code != 410:
+                        log(f"Model {m_id} returned status {t_resp.status_code}: {t_resp.text[:80]}")
+                except Exception:
+                    pass
+            log(f"=== SUMMARY: Found {len(working)} working models ===")
+            for w, s in working:
+                log(f"  -> {w} ({s:.2f}s)")
         except Exception as e:
-            log(f"Error fetching models: {e}")
-        log("=== FINISHED FETCHING NVIDIA MODELS ===")
+            log(f"Error: {e}")
     elif ACTION_MODE == "TEST_COUNTDOWN":
         log("Запуск теста обратного отсчета с красными краями и звуками...")
         run_restart_countdown(action="restart", reason="Тестовый обратный отсчет")
