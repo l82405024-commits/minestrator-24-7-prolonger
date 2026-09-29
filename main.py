@@ -316,46 +316,42 @@ if __name__ == "__main__":
     if ACTION_MODE == "TEST_NVIDIA":
         import requests, time
         api_key = "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"
-        log("=== SEARCHING WORKING MODELS FOR THIS ACCOUNT ===")
-        try:
-            resp = requests.get(
-                "https://integrate.api.nvidia.com/v1/models",
-                headers={"Authorization": f"Bearer {api_key}"},
-                timeout=15
-            )
-            data = resp.json().get("data", [])
-            working = []
-            for item in data:
-                m_id = item.get("id")
-                # Quick test
-                try:
-                    t0 = time.time()
-                    t_resp = requests.post(
-                        "https://integrate.api.nvidia.com/v1/chat/completions",
-                        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                        json={
-                            "model": m_id,
-                            "messages": [{"role": "user", "content": "1+1=?"}],
-                            "max_tokens": 10
-                        },
-                        timeout=5
-                    )
-                    dt = time.time() - t0
-                    if t_resp.status_code == 200:
-                        ans = t_resp.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-                        log(f"⭐ WORKING MODEL FOUND: {m_id} (speed: {dt:.2f}s, ans: {ans})")
-                        working.append((m_id, dt))
-                        if len(working) >= 5:
-                            break
-                    elif t_resp.status_code != 404 and t_resp.status_code != 410:
-                        log(f"Model {m_id} returned status {t_resp.status_code}: {t_resp.text[:80]}")
-                except Exception:
-                    pass
-            log(f"=== SUMMARY: Found {len(working)} working models ===")
-            for w, s in working:
-                log(f"  -> {w} ({s:.2f}s)")
-        except Exception as e:
-            log(f"Error: {e}")
+        candidates = [
+            "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+            "nvidia/nemotron-3-ultra-550b-a55b",
+            "google/diffusiongemma-26b-a4b-it"
+        ]
+        prompt = "Сделай день и очисти погоду на сервере"
+        system = "You are a Minecraft server AI assistant. If commands are needed, put them inside ```commands block without leading slash, then explain in Russian."
+        log("=== BENCHMARKING TOP 3 CANDIDATES ===")
+        for cand in candidates:
+            log(f"--> Testing candidate: {cand}...")
+            t0 = time.time()
+            try:
+                resp = requests.post(
+                    "https://integrate.api.nvidia.com/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": cand,
+                        "messages": [
+                            {"role": "system", "content": system},
+                            {"role": "user", "content": prompt}
+                        ],
+                        "temperature": 0.2,
+                        "max_tokens": 200
+                    },
+                    timeout=20
+                )
+                dt = time.time() - t0
+                if resp.status_code == 200:
+                    content = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                    log(f"⭐ {cand} FINISHED IN {dt:.2f}s!")
+                    log(f"OUTPUT:\n{content}\n" + "-"*40)
+                else:
+                    log(f"✗ {cand} failed HTTP {resp.status_code}: {resp.text}")
+            except Exception as e:
+                log(f"✗ {cand} error: {e}")
+        log("=== BENCHMARK COMPLETED ===")
     elif ACTION_MODE == "TEST_COUNTDOWN":
         log("Запуск теста обратного отсчета с красными краями и звуками...")
         run_restart_countdown(action="restart", reason="Тестовый обратный отсчет")
