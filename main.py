@@ -316,42 +316,35 @@ if __name__ == "__main__":
     if ACTION_MODE == "TEST_NVIDIA":
         import requests, time
         api_key = "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"
-        candidates = [
-            "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
-            "nvidia/nemotron-3-ultra-550b-a55b",
-            "google/diffusiongemma-26b-a4b-it"
+        model = "google/diffusiongemma-26b-a4b-it"
+        test_prompts = [
+            "Забань игрока Hacker123 за использование флая и очисти его инвентарь",
+            "Как отключить PvP в регионе спавна через WorldGuard?"
         ]
-        prompt = "Сделай день и очисти погоду на сервере"
-        system = "You are a Minecraft server AI assistant. If commands are needed, put them inside ```commands block without leading slash, then explain in Russian."
-        log("=== BENCHMARKING TOP 3 CANDIDATES ===")
-        for cand in candidates:
-            log(f"--> Testing candidate: {cand}...")
+        system = "You are an expert AI Moderator for the Hogwarts Minecraft server. If commands are needed, put them inside ```commands block without leading slash, then explain in Russian."
+        log("=== TESTING WINNER MODEL ON COMPLEX TASKS ===")
+        for p in test_prompts:
+            log(f"--> Testing prompt: '{p}'...")
             t0 = time.time()
-            try:
-                resp = requests.post(
-                    "https://integrate.api.nvidia.com/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                    json={
-                        "model": cand,
-                        "messages": [
-                            {"role": "system", "content": system},
-                            {"role": "user", "content": prompt}
-                        ],
-                        "temperature": 0.2,
-                        "max_tokens": 200
-                    },
-                    timeout=20
-                )
-                dt = time.time() - t0
-                if resp.status_code == 200:
-                    content = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-                    log(f"⭐ {cand} FINISHED IN {dt:.2f}s!")
-                    log(f"OUTPUT:\n{content}\n" + "-"*40)
-                else:
-                    log(f"✗ {cand} failed HTTP {resp.status_code}: {resp.text}")
-            except Exception as e:
-                log(f"✗ {cand} error: {e}")
-        log("=== BENCHMARK COMPLETED ===")
+            resp = requests.post(
+                "https://integrate.api.nvidia.com/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": p}
+                    ],
+                    "temperature": 0.2,
+                    "max_tokens": 250
+                },
+                timeout=15
+            )
+            dt = time.time() - t0
+            content = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+            log(f"⭐ FINISHED IN {dt:.2f}s!")
+            log(f"OUTPUT:\n{content}\n" + "-"*40)
+        log("=== TEST COMPLETED ===")
     elif ACTION_MODE == "TEST_COUNTDOWN":
         log("Запуск теста обратного отсчета с красными краями и звуками...")
         run_restart_countdown(action="restart", reason="Тестовый обратный отсчет")
