@@ -316,42 +316,46 @@ if __name__ == "__main__":
     if ACTION_MODE == "TEST_NVIDIA":
         import requests, time
         api_key = "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"
-        models_to_test = [
-            "meta/llama-3.3-70b-instruct",
-            "meta/llama-3.1-8b-instruct",
-            "mistralai/mistral-large-2-instruct",
-            "deepseek-ai/deepseek-r1",
-            "nvidia/llama-3.1-nemotron-70b-instruct"
-        ]
-        log("=== TESTING NVIDIA NIM MODELS ===")
-        for model in models_to_test:
-            log(f"--> Testing model: {model}...")
-            t0 = time.time()
-            try:
-                resp = requests.post(
-                    "https://integrate.api.nvidia.com/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                    json={
-                        "model": model,
-                        "messages": [
-                            {"role": "system", "content": "You are a Minecraft server assistant. If commands needed, output inside ```commands."},
-                            {"role": "user", "content": "Сделай день и очисти погоду на сервере"}
-                        ],
-                        "temperature": 0.2,
-                        "max_tokens": 150
-                    },
-                    timeout=20
-                )
-                dt = time.time() - t0
-                if resp.status_code == 200:
-                    ans = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-                    log(f"✓ Model {model} SUCCESS! Time: {dt:.2f}s")
-                    log(f"   Response snippet: {ans[:120].strip()}...")
-                else:
-                    log(f"✗ Model {model} FAILED HTTP {resp.status_code}: {resp.text[:120]}")
-            except Exception as e:
-                log(f"✗ Model {model} ERROR: {e}")
-        log("=== FINISHED TESTING NVIDIA NIM MODELS ===")
+        log("=== FETCHING ACTIVE NVIDIA NIM MODELS ===")
+        try:
+            resp = requests.get(
+                "https://integrate.api.nvidia.com/v1/models",
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=15
+            )
+            if resp.status_code == 200:
+                data = resp.json().get("data", [])
+                log(f"Found {len(data)} total models on NVIDIA NIM!")
+                # Print active models
+                instruct_models = [m.get("id") for m in data if "instruct" in m.get("id", "").lower() or "chat" in m.get("id", "").lower() or "r1" in m.get("id", "").lower()]
+                for m_id in instruct_models[:30]:
+                    log(f"  Available model: {m_id}")
+                
+                # Test the first 3 models
+                for test_m in instruct_models[:4]:
+                    log(f"--> Quick test with {test_m}...")
+                    t0 = time.time()
+                    t_resp = requests.post(
+                        "https://integrate.api.nvidia.com/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                        json={
+                            "model": test_m,
+                            "messages": [{"role": "user", "content": "Привет! Назови себя и ответь одним словом: работает?"}],
+                            "max_tokens": 50
+                        },
+                        timeout=15
+                    )
+                    dt = time.time() - t0
+                    if t_resp.status_code == 200:
+                        txt = t_resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                        log(f"✓ MODEL {test_m} WORKS! ({dt:.2f}s) Reply: {txt.strip()}")
+                    else:
+                        log(f"✗ MODEL {test_m} failed HTTP {t_resp.status_code}: {t_resp.text[:100]}")
+            else:
+                log(f"Failed to fetch models: HTTP {resp.status_code} {resp.text}")
+        except Exception as e:
+            log(f"Error fetching models: {e}")
+        log("=== FINISHED FETCHING NVIDIA MODELS ===")
     elif ACTION_MODE == "TEST_COUNTDOWN":
         log("Запуск теста обратного отсчета с красными краями и звуками...")
         run_restart_countdown(action="restart", reason="Тестовый обратный отсчет")
