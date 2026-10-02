@@ -165,10 +165,10 @@ def wait_for_online(timeout=120):
     return False
 
 def get_daily_wakeup_time(now_msk):
-    # Детерминированный расчет времени утреннего подъема на сегодня (между 06:00 и 06:59 МСК)
+    # Детерминированный расчет времени утреннего подъема на сегодня (между 06:05 и 06:55 МСК - строго до 7:00)
     date_str = now_msk.strftime('%Y-%m-%d')
     hash_val = int(hashlib.md5(date_str.encode()).hexdigest(), 16)
-    wake_minute = hash_val % 60
+    wake_minute = 5 + (hash_val % 51)  # Случайная минута от 06:05 до 06:55 МСК
     return 6, wake_minute
 
 def is_night_window(now_msk):
@@ -179,6 +179,40 @@ def is_night_window(now_msk):
     if now_msk.hour == wake_hour and now_msk.minute < wake_minute:
         return True
     return False
+
+def run_night_shutdown():
+    log("🌙 Наступило ночное окно (время >= 00:00 МСК). Сервер онлайн. Запуск процедуры выключения на ночь...")
+    # 0. Отключаем серые служебные сообщения админам
+    send_console_msg("gamerule sendCommandFeedback false")
+    send_console_msg("gamerule logAdminCommands false")
+    
+    # 1. Красные края экрана (предупреждение)
+    send_console_msg("worldborder warning distance 29999984")
+    
+    # 2. Звук колокола и оповещение в чат
+    send_console_msg("playsound minecraft:block.bell.use master @a")
+    send_console_msg('tellraw @a [{"text":"[СЕРВЕР] ","color":"red","bold":true},{"text":"00:00 МСК — Наступил ночной режим! ","color":"gold","bold":true},{"text":"Сервер выключается на ночной сон до утра (включение в 06:XX-07:00 МСК). Спокойной ночи!","color":"yellow"}]')
+    
+    # 3. Большие буквы на экране
+    send_console_msg("title @a times 5 40 5")
+    send_console_msg('title @a title {"text":"🌙 НОЧНОЙ РЕЖИМ 🌙","color":"aqua","bold":true}')
+    send_console_msg('title @a subtitle {"text":"Сервер уходит спать до утра. Мир сохраняется!","color":"gold"}')
+    time.sleep(3)
+    
+    # 4. Отсчет 3, 2, 1
+    for sec in [3, 2, 1]:
+        send_console_msg(f'title @a title {{"text":"Выключение через {sec}...", "color":"red", "bold":true}}')
+        send_console_msg(f'playsound minecraft:block.note_block.pling master @a ~ ~ ~ 1 {sec * 0.4:.2f}')
+        time.sleep(1)
+        
+    # 5. Сохранение миров и сброс рамки
+    send_console_msg("save-all")
+    time.sleep(1)
+    send_console_msg("worldborder warning distance 5")
+    
+    # 6. Остановка сервера
+    execute_power_action("stop")
+    log("💤 Сервер успешно выключен и отдыхает до утреннего пробуждения!")
 
 def run_restart_countdown(action="restart", reason="Плановая перезагрузка"):
     log(f"🚨 Запуск обратного отсчета для перезагрузки ({action.upper()}) | Причина: {reason}")
@@ -259,16 +293,16 @@ def smart_keepalive():
     log(f"💻 Нагрузка: RAM {ram}/{ram_lim} MB | CPU {cpu}% | Игроков онлайн: {players}")
 
     # ==========================================
-    # 🌙 1. НОЧНОЕ ОКНО (от 00:00 до 06:XX МСК)
+    # 🌙 1. НОЧНОЕ ОКНО (от 00:00 до 06:XX МСК - строго до 7:00)
     # ==========================================
     if night:
         if st == "online":
-            log(f"🌙 Ночное окно (после 00:00 МСК). Сервер онлайн. Бот НЕ выключает сервер принудительно (дает доиграть), но больше не делает перезапусков.")
-            send_console_msg("list")
+            log(f"🌙 Наступила ночь ({now_msk.strftime('%H:%M:%S')} МСК). Сервер онлайн — принудительно выключаем на ночной сон до {wake_hour:02d}:{wake_minute:02d} МСК...")
+            run_night_shutdown()
         elif st == "offline":
-            log(f"💤 Ночное окно. Сервер выключен. Бот понимает, что сегодня включать больше не нужно, и оставляет его спать до {wake_hour:02d}:{wake_minute:02d} МСК.")
+            log(f"💤 Ночной покой (00:00 — {wake_hour:02d}:{wake_minute:02d} МСК). Сервер выключен и отдыхает до утреннего запуска.")
         else:
-            log(f"🌙 Сервер в переходном состоянии [{st.upper()}]. Ожидаем завершения.")
+            log(f"🌙 Ночное окно. Сервер в переходном состоянии [{st.upper()}]. Ожидаем завершения.")
         return
 
     # ==========================================
@@ -313,38 +347,9 @@ def smart_keepalive():
             send_console_msg("list")
 
 if __name__ == "__main__":
-    if ACTION_MODE == "TEST_NVIDIA":
-        import requests, time
-        api_key = "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"
-        model = "google/diffusiongemma-26b-a4b-it"
-        test_prompts = [
-            "Забань игрока Hacker123 за использование флая и очисти его инвентарь",
-            "Как отключить PvP в регионе спавна через WorldGuard?"
-        ]
-        system = "You are an expert AI Moderator for the Hogwarts Minecraft server. If commands are needed, put them inside ```commands block without leading slash, then explain in Russian."
-        log("=== TESTING WINNER MODEL ON COMPLEX TASKS ===")
-        for p in test_prompts:
-            log(f"--> Testing prompt: '{p}'...")
-            t0 = time.time()
-            resp = requests.post(
-                "https://integrate.api.nvidia.com/v1/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": p}
-                    ],
-                    "temperature": 0.2,
-                    "max_tokens": 250
-                },
-                timeout=15
-            )
-            dt = time.time() - t0
-            content = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-            log(f"⭐ FINISHED IN {dt:.2f}s!")
-            log(f"OUTPUT:\n{content}\n" + "-"*40)
-        log("=== TEST COMPLETED ===")
+    if ACTION_MODE == "TEST_NIGHT":
+        log("Тестовый запуск процедуры ночного отключения...")
+        run_night_shutdown()
     elif ACTION_MODE == "TEST_COUNTDOWN":
         log("Запуск теста обратного отсчета с красными краями и звуками...")
         run_restart_countdown(action="restart", reason="Тестовый обратный отсчет")
