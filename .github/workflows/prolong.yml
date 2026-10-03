@@ -38,7 +38,7 @@ jobs:
       - name: Execute Routine
         env:
           PYTHONUNBUFFERED: '1'
-          SERVER_ID: '384625'
+          SERVER_ID: '500883'
           MINESTRATOR_TOKEN: ${{ secrets.MINESTRATOR_TOKEN }}
           ACTION_MODE: ${{ github.event.inputs.action_mode || github.event.client_payload.action_mode || 'SMART_KEEPALIVE' }}
         run: python main.py

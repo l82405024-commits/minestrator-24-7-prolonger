@@ -13,7 +13,7 @@ try:
 except Exception:
     pass
 
-SERVER_ID = int(os.getenv("SERVER_ID", "384625"))
+SERVER_ID = int(os.getenv("SERVER_ID", "500883"))
 RAW_TOKEN = os.getenv("MINESTRATOR_TOKEN", "").strip()
 if not RAW_TOKEN:
     print("❌ КРИТИЧЕСКАЯ ОШИБКА: Переменная окружения MINESTRATOR_TOKEN не задана!")
