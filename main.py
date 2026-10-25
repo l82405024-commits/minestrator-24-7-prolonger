@@ -38,9 +38,10 @@ MCP_HEADERS = {
 REST_HEADERS = {
     "Authorization": AUTH_HEADER,
     "Content-Type": "application/json",
-    "Accept": "application/json",
+    "Accept": "application/json, text/plain, */*",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
     "Origin": "https://minestrator.com",
-    "Referer": "https://minestrator.com/"
+    "Referer": f"https://minestrator.com/my/server/{SERVER_ID}/manage"
 }
 
 # Московский часовой пояс (UTC+3)
